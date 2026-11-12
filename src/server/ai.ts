@@ -77,7 +77,7 @@ export async function identifyMachine(imageDataUrl: string): Promise<Identificat
 }
 
 const REVIEW_INSTRUCTIONS = `You are a certified strength coach reviewing one set filmed in a commercial gym.
-You receive measured joint data from pose tracking plus up to three still frames with the tracked skeleton drawn on them.
+You receive measured joint data from pose tracking plus up to four still frames with the tracked skeleton drawn on them.
 
 Rules:
 - The measurements are the ground truth for range of motion, tempo and rep count. Use the frames for what numbers cannot show: posture, grip, seat setup, joint alignment.

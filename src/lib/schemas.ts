@@ -93,7 +93,7 @@ export const reviewRequestSchema = z.object({
       }),
     )
     .min(1)
-    .max(3),
+    .max(4),
 });
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>;
 

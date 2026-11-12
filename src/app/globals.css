@@ -1,26 +1,137 @@
 @import "tailwindcss";
 
+/*
+ * Spotter design tokens: "chalk and steel".
+ * Semantic names only; components never use raw hex.
+ * Contrast (light): ink on chalk 15.9:1, steel on chalk 4.8:1, white on plate 7.1:1.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --chalk: #eef1f0;
+  --surface: #ffffff;
+  --surface-sunk: #e2e7e5;
+  --ink: #1a1e21;
+  --steel: #56616a;
+  --line: #c9d0cd;
+  --plate: #2148d0;
+  --plate-ink: #ffffff;
+  --plate-soft: #9db1f2;
+  --plate-wash: #dde5fb;
+  --good: #17734d;
+  --fix: #8f5600;
+  --fix-wash: #fbeed8;
+  --danger: #b3261e;
+  --danger-wash: #f9e1df;
+  --focus: #2148d0;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* 3D scene palette (read by three.js via getComputedStyle) */
+  --scene-body: #b9c2c7;
+  --scene-muscle-idle: #9aa5ac;
+  --scene-tendon: #d9dcd6;
+  --scene-metal: #5d6870;
+  --scene-pad: #2c3338;
+  --scene-floor: #dde3e1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --chalk: #121517;
+    --surface: #1b2024;
+    --surface-sunk: #0d1012;
+    --ink: #e9eeec;
+    --steel: #9aa6ae;
+    --line: #2f373d;
+    --plate: #7f9cff;
+    --plate-ink: #0b1230;
+    --plate-soft: #3b55b8;
+    --plate-wash: #1c2550;
+    --good: #5fd39c;
+    --fix: #f2b562;
+    --fix-wash: #3a2a10;
+    --danger: #ff8a80;
+    --danger-wash: #3d1714;
+    --focus: #7f9cff;
+
+    --scene-body: #6c777e;
+    --scene-muscle-idle: #7b858b;
+    --scene-tendon: #a9ada6;
+    --scene-metal: #8a959c;
+    --scene-pad: #1f2428;
+    --scene-floor: #1a1f22;
   }
 }
 
+@theme inline {
+  --color-chalk: var(--chalk);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-ink: var(--ink);
+  --color-steel: var(--steel);
+  --color-line: var(--line);
+  --color-plate: var(--plate);
+  --color-plate-ink: var(--plate-ink);
+  --color-plate-soft: var(--plate-soft);
+  --color-plate-wash: var(--plate-wash);
+  --color-good: var(--good);
+  --color-fix: var(--fix);
+  --color-fix-wash: var(--fix-wash);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-barlow-condensed), var(--font-barlow), ui-sans-serif, sans-serif;
+
+  /* Type scale: 1.25 ratio from a 17px body */
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.55;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.45;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.2;
+  --text-h2: 2rem;
+  --text-h2--line-height: 1.05;
+  --text-h1: clamp(2.75rem, 7vw, 4.75rem);
+  --text-h1--line-height: 0.95;
+
+  --radius-control: 0.625rem;
+  --radius-panel: 1.25rem;
+}
+
+html {
+  color-scheme: light dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--chalk);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.55;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scan line over a photo while the machine is identified */
+@keyframes scan-sweep {
+  from {
+    top: 0%;
+  }
+  to {
+    top: 100%;
+  }
+}
+.scan-line {
+  animation: scan-sweep 1.6s ease-in-out infinite alternate;
 }

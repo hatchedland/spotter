@@ -14,6 +14,16 @@ These override the global Codebase Standards where they conflict.
   Example: `✨ Add form-check rep detection`.
 - Never add `Co-Authored-By` lines. Never open a PR unless explicitly asked in that message.
 
+## Docs first
+
+- Every development is written up in `docs/` **before** it is built: problem, plan, how it will be
+  checked. Then build, then add the result to the doc. See `docs/README.md` for the format.
+- Changes to an existing feature go in that feature's doc as a dated entry, not a new file.
+- **Before every push to GitHub**, bring `docs/` and this `CLAUDE.md` up to date with what is being
+  pushed: fill in each entry's **Result**, update file tables, build steps, open questions and the
+  `docs/README.md` index, and change any rule here that the work has made stale. Commit those
+  updates in the same push, never in a later one.
+
 ## Code
 
 - Next.js 16 App Router + `cacheComponents`. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
@@ -32,5 +42,7 @@ These override the global Codebase Standards where they conflict.
 - Type: Barlow Condensed for display (`font-display`), Barlow for body. Scale: `text-h1/h2/h3/body/small`.
 - Plate blue (`--plate`) is the only accent. It marks primary actions and primary muscles.
 - 3D scene colours are read from the `--scene-*` tokens via `useSceneColors`.
+- The 3D figure is an écorché built from Z-Anatomy by `tools/anatomy/build_figure.py` into
+  `public/models/ecorche.glb`. Rebuild and verification steps are in `docs/anatomy-figure.md`.
 - Every animation respects `prefers-reduced-motion` and has a visible pause control.
 - Touch targets are at least 44px. Every state (empty, loading, error, success) has written copy.

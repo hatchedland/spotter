@@ -10,8 +10,11 @@ Film a set to get rep counts, range-of-motion measurements and specific form fix
 - **Demonstrate**: a rigged 3D figure (`src/components/three`) animates the pattern's start and end poses
   at the coaching tempo, with primary and secondary muscles highlighted.
 - **Form check**: MediaPipe Pose runs in the browser. `src/lib/analysis` turns landmarks into joint
-  signals, detects reps and flags issues. Only three annotated stills and the numbers go to
-  `POST /api/v1/form-reviews` for coaching. The video never leaves the device.
+  signals, detects reps and flags issues. Only the numbers and three or four annotated stills (the
+  fourth shows the worst middle rep) go to `POST /api/v1/form-reviews` for coaching. The video
+  never leaves the device.
+- **Limits**: both AI routes are rate-limited per IP (20 scans and 10 reviews an hour).
+  Cost per call is measured in `docs/ai-provider.md`.
 
 ## Develop
 

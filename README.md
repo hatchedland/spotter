@@ -5,7 +5,7 @@ Film a set to get rep counts, range-of-motion measurements and specific form fix
 
 ## How it works
 
-- **Scan**: `POST /api/v1/machines/identify` sends a downscaled photo to a vision model (Vercel AI Gateway),
+- **Scan**: `POST /api/v1/machines/identify` sends a downscaled photo to a vision model (Google Gemini),
   which maps it to one of the movement patterns in `src/lib/exercise/patterns.ts`.
 - **Demonstrate**: a rigged 3D figure (`src/components/three`) animates the pattern's start and end poses
   at the coaching tempo, with primary and secondary muscles highlighted.
@@ -17,7 +17,7 @@ Film a set to get rep counts, range-of-motion measurements and specific form fix
 
 ```bash
 npm install
-cp .env.example .env.local   # or: vercel link && vercel env pull
+cp -n .env.example .env.local   # then set GOOGLE_GENERATIVE_AI_API_KEY in .env.local
 npm run dev
 ```
 

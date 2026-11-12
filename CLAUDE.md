@@ -27,7 +27,9 @@ These override the global Codebase Standards where they conflict.
 ## Code
 
 - Next.js 16 App Router + `cacheComponents`. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
-- AI calls go through Vercel AI Gateway with AI SDK 7 (`instructions`, `Output.object`, `{ type: "file" }` image parts).
+- AI calls go to Google Gemini directly via `@ai-sdk/google` with AI SDK 7 (`instructions`, `Output.object`,
+  `{ type: "file" }` image parts). Key from `GOOGLE_GENERATIVE_AI_API_KEY`, never `NEXT_PUBLIC_`, real
+  values only in `.env.local`. See `docs/ai-provider.md`.
   Model id from `VISION_MODEL`, server-only code in `src/server/`.
 - API routes live under `/api/v1/`, validate input with Zod (`src/lib/schemas.ts`) and return
   `{ error, code }` with a real HTTP status on failure.

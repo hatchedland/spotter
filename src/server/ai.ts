@@ -1,4 +1,5 @@
 import "server-only";
+import { google } from "@ai-sdk/google";
 import { APICallError, generateText, NoObjectGeneratedError, Output } from "ai";
 import { PATTERN_LIST, getPattern } from "@/lib/exercise/patterns";
 import {
@@ -9,8 +10,11 @@ import {
   type Review,
 } from "@/lib/schemas";
 
-/** Vision-capable model routed through Vercel AI Gateway. Override per environment. */
-const VISION_MODEL = process.env.VISION_MODEL ?? "anthropic/claude-sonnet-5.5";
+/**
+ * Vision-capable Gemini model, called directly. The provider reads GOOGLE_GENERATIVE_AI_API_KEY
+ * from the server environment; this module is server-only, so the key never reaches the browser.
+ */
+const VISION_MODEL = google(process.env.VISION_MODEL ?? "gemini-3.8-flash");
 const TIMEOUT_MS = 45_000;
 
 export class AiFailure extends Error {

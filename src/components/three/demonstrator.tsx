@@ -1,11 +1,14 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useCallback, useMemo, useRef, type ReactNode, type RefObject } from "react";
-import { Group, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from "three";
-import { muscleRole, type Muscle, type MuscleRole, type MuscleTargets } from "@/lib/exercise/muscles";
+import { Component, Suspense, useImperativeHandle, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { Group, Matrix4, Mesh, Quaternion, Vector3 } from "three";
+import type { MuscleTargets } from "@/lib/exercise/muscles";
 import type { SceneProps } from "@/lib/exercise/patterns";
-import { BODY, groundedPelvis, lerpPose, sampleRep, type Pose, type RepPhase, type Tempo } from "@/lib/exercise/pose";
+import { groundedPelvis, lerpPose, sampleRep, type Pose, type RepPhase, type Tempo } from "@/lib/exercise/pose";
+import { AnatomyBody } from "./anatomy-body";
+import type { BodyHandle, BodyJoint, Side } from "./body";
+import { ProceduralBody } from "./procedural-body";
 import type { SceneColors } from "./use-scene-colors";
 
 export interface PlaybackControl {
@@ -30,7 +33,6 @@ interface DemonstratorProps {
   onPhaseChange?: (phase: RepPhase) => void;
 }
 
-const rad = (deg: number) => (deg * Math.PI) / 180;
 const UP = new Vector3(0, 1, 0);
 
 /** Stretches a unit-height cylinder mesh between two points. */
@@ -44,37 +46,40 @@ function placeBetween(mesh: Mesh, a: Vector3, b: Vector3, extend = 0) {
   mesh.scale.set(1, len + extend * 2, 1);
 }
 
-type Side = 1 | -1;
-const SIDES: readonly Side[] = [1, -1];
+/** Renders the procedural figure if the anatomy model fails to load. */
+class BodyFallback extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
-type JointRef = RefObject<Group | null>;
+const HAND: Record<Side, BodyJoint> = { 1: "hand_L", [-1]: "hand_R" };
+
+interface PadsHandle {
+  /** Re-pins every pad to its joint. `toStage` maps world space into the stage group. */
+  update: (body: BodyHandle, toStage: Matrix4) => void;
+}
 
 export function Demonstrator({ motion, muscles, colors, controlRef, onPhaseChange }: DemonstratorProps) {
   const stageRef = useRef<Group>(null);
-  const rootRef = useRef<Group>(null);
-  const torsoRef = useRef<Group>(null);
+  const bodyRef = useRef<BodyHandle | null>(null);
   const barRef = useRef<Mesh>(null);
   const cableARef = useRef<Mesh>(null);
   const cableBRef = useRef<Mesh>(null);
-  const lShoulderRef = useRef<Group>(null);
-  const lElbowRef = useRef<Group>(null);
-  const lHandRef = useRef<Group>(null);
-  const lHipRef = useRef<Group>(null);
-  const lKneeRef = useRef<Group>(null);
-  const lAnkleRef = useRef<Group>(null);
-  const rShoulderRef = useRef<Group>(null);
-  const rElbowRef = useRef<Group>(null);
-  const rHandRef = useRef<Group>(null);
-  const rHipRef = useRef<Group>(null);
-  const rKneeRef = useRef<Group>(null);
-  const rAnkleRef = useRef<Group>(null);
+  const padsRef = useRef<PadsHandle | null>(null);
   const clockRef = useRef(0);
   const lastPhaseRef = useRef<RepPhase | null>(null);
-  const glowMaterialsRef = useRef(new Set<MeshStandardMaterial>());
 
   const { scene } = motion;
   const footOnPlate = scene.legPad === "footplate";
-  const scratch = useMemo(() => ({ a: new Vector3(), b: new Vector3(), mid: new Vector3() }), []);
+  const scratch = useMemo(
+    () => ({ a: new Vector3(), b: new Vector3(), mid: new Vector3(), m: new Matrix4(), inv: new Matrix4() }),
+    [],
+  );
 
   useFrame((_, delta) => {
     const ctl = controlRef.current;
@@ -92,43 +97,31 @@ export function Demonstrator({ motion, muscles, colors, controlRef, onPhaseChang
       lastPhaseRef.current = null;
     }
 
+    const body = bodyRef.current;
+    const stage = stageRef.current;
+    if (!body || !stage) return;
+    const m = body.metrics;
     const pose = lerpPose(motion.start, motion.end, progress);
-    const root = rootRef.current;
-    const torso = torsoRef.current;
-    if (!root || !torso) return;
 
     if (motion.grounded || !scene.seat) {
-      const [y, z] = groundedPelvis(pose);
-      root.position.set(0, y, z);
+      const [y, z] = groundedPelvis(pose, m);
+      body.apply(pose, y, z, progress);
     } else {
-      root.position.set(0, scene.seat.height + 0.06, 0);
-    }
-    root.rotation.x = rad(pose.rootPitch);
-    torso.rotation.x = rad(pose.torsoPitch);
-
-    const sides: readonly [Side, JointRef, JointRef, JointRef, JointRef, JointRef][] = [
-      [1, lShoulderRef, lElbowRef, lHipRef, lKneeRef, lAnkleRef],
-      [-1, rShoulderRef, rElbowRef, rHipRef, rKneeRef, rAnkleRef],
-    ];
-    const flatFoot = -(rad(pose.rootPitch) - rad(pose.hipFlex) + rad(pose.kneeFlex));
-    for (const [s, shoulder, elbow, hip, knee, ankle] of sides) {
-      shoulder.current?.rotation.set(-rad(pose.shoulderFlex), s * rad(pose.shoulderTwist), s * rad(pose.shoulderAbd), "ZXY");
-      elbow.current?.rotation.set(-rad(pose.elbowFlex), 0, 0);
-      hip.current?.rotation.set(-rad(pose.hipFlex), 0, s * rad(pose.hipAbd), "XZY");
-      knee.current?.rotation.set(rad(pose.kneeFlex), 0, 0);
-      ankle.current?.rotation.set(footOnPlate ? 0 : flatFoot, 0, 0);
+      body.apply(pose, scene.seat.height + m.seatOffset, 0, progress);
     }
 
-    // Working muscles glow harder the further into the rep they are.
-    for (const material of glowMaterialsRef.current) material.emissiveIntensity = 0.15 + 0.55 * progress;
+    stage.updateWorldMatrix(true, false);
+    scratch.inv.copy(stage.matrixWorld).invert();
+    padsRef.current?.update(body, scratch.inv);
 
-    // Bar and cables follow the hands.
-    const stage = stageRef.current;
-    const hl = lHandRef.current;
-    const hr = rHandRef.current;
-    if (!stage || !hl || !hr) return;
-    const a = stage.worldToLocal(hl.getWorldPosition(scratch.a));
-    const b = stage.worldToLocal(hr.getWorldPosition(scratch.b));
+    // Bar and cables follow the grip points.
+    const grip = (s: Side, target: Vector3) => {
+      if (!body.frame(HAND[s], scratch.m)) return target.set(0, 0, 0);
+      scratch.m.premultiply(scratch.inv);
+      return target.set(s * m.gripOffset[0], m.gripOffset[1], m.gripOffset[2]).applyMatrix4(scratch.m);
+    };
+    const a = grip(1, scratch.a);
+    const b = grip(-1, scratch.b);
     scratch.mid.copy(a).add(b).multiplyScalar(0.5);
 
     if (barRef.current) placeBetween(barRef.current, a, b, scene.rails ? 0.55 : 0.2);
@@ -140,29 +133,9 @@ export function Demonstrator({ motion, muscles, colors, controlRef, onPhaseChang
     }
   });
 
-  const registerGlow = useCallback((material: MeshStandardMaterial | null) => {
-    if (!material) return;
-    const set = glowMaterialsRef.current;
-    set.add(material);
-    return () => {
-      set.delete(material);
-    };
-  }, []);
-
-  const muscle = (name: Muscle, position: [number, number, number], scale: [number, number, number], key?: string) => (
-    <MuscleMesh
-      key={key ?? name}
-      role={muscleRole(muscles, name)}
-      colors={colors}
-      position={position}
-      scale={scale}
-      registerGlow={registerGlow}
-    />
-  );
-
-  const bodyMat = <meshStandardMaterial color={colors.body} roughness={0.75} />;
   const metalMat = <meshStandardMaterial color={colors.metal} roughness={0.35} metalness={0.6} />;
   const padMat = <meshStandardMaterial color={colors.pad} roughness={0.9} />;
+  const procedural = <ProceduralBody bodyRef={bodyRef} muscles={muscles} colors={colors} footOnPlate={footOnPlate} />;
 
   return (
     <group ref={stageRef}>
@@ -187,215 +160,144 @@ export function Demonstrator({ motion, muscles, colors, controlRef, onPhaseChang
         </mesh>
       ) : null}
 
-      {/* Pelvis */}
-      <group ref={rootRef}>
-        <mesh scale={[1.25, 0.8, 0.85]} castShadow>
-          <sphereGeometry args={[0.13, 24, 16]} />
-          {bodyMat}
-        </mesh>
-        {SIDES.map((s) => muscle("glutes", [s * 0.065, -0.03, -0.075], [0.07, 0.075, 0.05], `glutes${s}`))}
-        {SIDES.map((s) => muscle("abductors", [s * 0.145, -0.02, 0], [0.03, 0.07, 0.06], `abductors${s}`))}
+      <BodyFallback fallback={procedural}>
+        <Suspense fallback={procedural}>
+          <AnatomyBody bodyRef={bodyRef} muscles={muscles} colors={colors} footOnPlate={footOnPlate} />
+        </Suspense>
+      </BodyFallback>
 
-        {scene.seat ? (
-          <mesh position={[0, -0.1, 0.1]} receiveShadow>
-            <boxGeometry args={[0.44, 0.07, 0.5]} />
-            {padMat}
-          </mesh>
-        ) : null}
+      <Pads scene={scene} padsRef={padsRef} metalMat={metalMat} padMat={padMat} />
+    </group>
+  );
+}
 
-        {/* Torso */}
-        <group ref={torsoRef} position={[0, BODY.torsoBase, 0]}>
-          <mesh position={[0, 0.25, 0]} scale={[1.3, 1, 0.78]} castShadow>
-            <capsuleGeometry args={[0.13, 0.26, 8, 20]} />
-            {bodyMat}
-          </mesh>
-          {SIDES.map((s) => muscle("chest", [s * 0.08, 0.38, 0.085], [0.085, 0.065, 0.04], `chest${s}`))}
-          {muscle("abs", [0, 0.19, 0.088], [0.075, 0.12, 0.03])}
-          {SIDES.map((s) => muscle("obliques", [s * 0.13, 0.17, 0.045], [0.035, 0.1, 0.055], `obliques${s}`))}
-          {SIDES.map((s) => muscle("lats", [s * 0.12, 0.29, -0.055], [0.055, 0.13, 0.06], `lats${s}`))}
-          {muscle("upper_back", [0, 0.41, -0.085], [0.13, 0.08, 0.04])}
-          {muscle("lower_back", [0, 0.12, -0.085], [0.065, 0.09, 0.03])}
+type PadJoint = "pelvis" | "torso" | "foot_L" | "thigh_L" | "thigh_R" | "shin_L" | "shin_R" | "hand_L" | "hand_R";
 
-          {scene.seat?.backrest ? (
-            <mesh position={[0, 0.3, -0.17]} receiveShadow>
+/**
+ * Seat, backrest, leg pads, footplate and handles. Each sits in a group whose matrix is set every
+ * frame from the joint it rests against; the pad is offset within that frame by the body's measurements.
+ */
+function Pads({
+  scene,
+  padsRef,
+  metalMat,
+  padMat,
+}: {
+  scene: SceneProps;
+  padsRef: RefObject<PadsHandle | null>;
+  metalMat: ReactNode;
+  padMat: ReactNode;
+}) {
+  const groups = useMemo(() => new Map<PadJoint, Group>(), []);
+  const frame = useMemo(() => new Matrix4(), []);
+  const offset = useMemo(() => new Matrix4(), []);
+
+  useImperativeHandle(
+    padsRef,
+    (): PadsHandle => ({
+      update(body, toStage) {
+        const m = body.metrics;
+        const offsets: Record<PadJoint, [number, number, number]> = {
+          pelvis: [0, -m.seatOffset - 0.035, 0.1],
+          torso: [0, 0.3, m.backZ - 0.04],
+          foot_L: [-m.hipHalfWidth, -m.ankleHeight - 0.005, 0.05],
+          thigh_L: [(scene.legPad === "knees_outside" ? 1 : -1) * 0.1, -m.thigh * 0.84, 0],
+          thigh_R: [(scene.legPad === "knees_outside" ? -1 : 1) * 0.1, -m.thigh * 0.84, 0],
+          shin_L: [0, -m.shin * 0.82, scene.legPad === "shin_front" ? 0.08 : -0.08],
+          shin_R: [0, -m.shin * 0.82, scene.legPad === "shin_front" ? 0.08 : -0.08],
+          hand_L: [m.gripOffset[0], m.gripOffset[1], m.gripOffset[2]],
+          hand_R: [-m.gripOffset[0], m.gripOffset[1], m.gripOffset[2]],
+        };
+        for (const [joint, group] of groups) {
+          if (!body.frame(joint, frame)) continue;
+          group.matrix.multiplyMatrices(toStage, frame).multiply(offset.makeTranslation(...offsets[joint]));
+          group.matrixWorldNeedsUpdate = true;
+        }
+      },
+    }),
+    [scene.legPad, groups, frame, offset],
+  );
+
+  const pin = (joint: PadJoint, mesh: ReactNode) => (
+    <group
+      key={joint}
+      matrixAutoUpdate={false}
+      ref={(g) => {
+        if (!g) return;
+        groups.set(joint, g);
+        return () => void groups.delete(joint);
+      }}
+    >
+      {mesh}
+    </group>
+  );
+
+  const kneePads = scene.legPad === "knees_outside" || scene.legPad === "knees_inside";
+  const shinPads = scene.legPad === "shin_front" || scene.legPad === "shin_back";
+
+  return (
+    <>
+      {scene.seat
+        ? pin(
+            "pelvis",
+            <mesh receiveShadow>
+              <boxGeometry args={[0.44, 0.07, 0.5]} />
+              {padMat}
+            </mesh>,
+          )
+        : null}
+      {scene.seat?.backrest
+        ? pin(
+            "torso",
+            <mesh receiveShadow>
               <boxGeometry args={[0.44, 0.62, 0.07]} />
               {padMat}
-            </mesh>
-          ) : null}
-
-          <mesh position={[0, 0.55, 0]}>
-            <cylinderGeometry args={[0.045, 0.05, 0.1, 12]} />
-            {bodyMat}
-          </mesh>
-          <mesh position={[0, 0.66, 0.01]} castShadow>
-            <sphereGeometry args={[BODY.headRadius, 24, 16]} />
-            {bodyMat}
-          </mesh>
-
-          <Arm side={1} shoulderRef={lShoulderRef} elbowRef={lElbowRef} handRef={lHandRef} bodyMat={bodyMat} metalMat={metalMat} grip={scene.grip} muscle={muscle} />
-          <Arm side={-1} shoulderRef={rShoulderRef} elbowRef={rElbowRef} handRef={rHandRef} bodyMat={bodyMat} metalMat={metalMat} grip={scene.grip} muscle={muscle} />
-        </group>
-
-        <Leg side={1} hipRef={lHipRef} kneeRef={lKneeRef} ankleRef={lAnkleRef} bodyMat={bodyMat} padMat={padMat} legPad={scene.legPad} muscle={muscle} />
-        <Leg side={-1} hipRef={rHipRef} kneeRef={rKneeRef} ankleRef={rAnkleRef} bodyMat={bodyMat} padMat={padMat} legPad={scene.legPad} muscle={muscle} />
-      </group>
-    </group>
-  );
-}
-
-type MuscleFactory = (
-  name: Muscle,
-  position: [number, number, number],
-  scale: [number, number, number],
-  key?: string,
-) => ReactNode;
-
-function Arm({
-  shoulderRef,
-  elbowRef,
-  handRef,
-  side,
-  bodyMat,
-  metalMat,
-  grip,
-  muscle,
-}: {
-  shoulderRef: JointRef;
-  elbowRef: JointRef;
-  handRef: JointRef;
-  side: Side;
-  bodyMat: ReactNode;
-  metalMat: ReactNode;
-  grip: SceneProps["grip"];
-  muscle: MuscleFactory;
-}) {
-  return (
-    <group ref={shoulderRef} position={[side * BODY.shoulderHalfWidth, 0.46, 0]}>
-      <mesh position={[0, -BODY.upperArm / 2, 0]} castShadow>
-        <capsuleGeometry args={[0.045, BODY.upperArm - 0.06, 6, 12]} />
-        {bodyMat}
-      </mesh>
-      {muscle("front_delts", [0, -0.03, 0.04], [0.045, 0.06, 0.035], `fd${side}`)}
-      {muscle("side_delts", [side * 0.035, -0.03, 0], [0.035, 0.065, 0.045], `sd${side}`)}
-      {muscle("rear_delts", [0, -0.03, -0.04], [0.045, 0.06, 0.035], `rd${side}`)}
-      {muscle("biceps", [0, -0.16, 0.03], [0.036, 0.09, 0.032], `bi${side}`)}
-      {muscle("triceps", [0, -0.15, -0.03], [0.038, 0.1, 0.034], `tri${side}`)}
-
-      <group ref={elbowRef} position={[0, -BODY.upperArm, 0]}>
-        <mesh position={[0, -BODY.forearm / 2, 0]} castShadow>
-          <capsuleGeometry args={[0.036, BODY.forearm - 0.05, 6, 12]} />
-          {bodyMat}
-        </mesh>
-        {muscle("forearms", [0, -0.09, 0], [0.042, 0.085, 0.042], `fa${side}`)}
-        <group ref={handRef} position={[0, -BODY.forearm - 0.03, 0]}>
-          <mesh scale={[0.8, 1, 0.6]}>
-            <sphereGeometry args={[0.045, 12, 10]} />
-            {bodyMat}
-          </mesh>
-          {grip === "handles" ? (
-            <mesh rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.016, 0.016, 0.13, 10]} />
-              {metalMat}
-            </mesh>
-          ) : null}
-        </group>
-      </group>
-    </group>
-  );
-}
-
-function Leg({
-  hipRef,
-  kneeRef,
-  ankleRef,
-  side,
-  bodyMat,
-  padMat,
-  legPad,
-  muscle,
-}: {
-  hipRef: JointRef;
-  kneeRef: JointRef;
-  ankleRef: JointRef;
-  side: Side;
-  bodyMat: ReactNode;
-  padMat: ReactNode;
-  legPad: SceneProps["legPad"];
-  muscle: MuscleFactory;
-}) {
-  return (
-    <group ref={hipRef} position={[side * BODY.hipHalfWidth, 0, 0]}>
-      <mesh position={[0, -BODY.thigh / 2, 0]} castShadow>
-        <capsuleGeometry args={[0.07, BODY.thigh - 0.1, 6, 14]} />
-        {bodyMat}
-      </mesh>
-      {muscle("quads", [0, -0.21, 0.04], [0.06, 0.17, 0.045], `q${side}`)}
-      {muscle("hamstrings", [0, -0.21, -0.04], [0.058, 0.16, 0.045], `h${side}`)}
-      {muscle("adductors", [-side * 0.045, -0.13, 0], [0.035, 0.12, 0.05], `ad${side}`)}
-
-      {legPad === "knees_outside" || legPad === "knees_inside" ? (
-        <mesh position={[(legPad === "knees_outside" ? side : -side) * 0.1, -0.38, 0]}>
-          <boxGeometry args={[0.04, 0.16, 0.14]} />
-          {padMat}
-        </mesh>
-      ) : null}
-
-      <group ref={kneeRef} position={[0, -BODY.thigh, 0]}>
-        <mesh position={[0, -BODY.shin / 2, 0]} castShadow>
-          <capsuleGeometry args={[0.05, BODY.shin - 0.08, 6, 12]} />
-          {bodyMat}
-        </mesh>
-        {muscle("calves", [0, -0.13, -0.035], [0.045, 0.1, 0.04], `c${side}`)}
-
-        {legPad === "shin_front" || legPad === "shin_back" ? (
-          <mesh position={[0, -0.37, legPad === "shin_front" ? 0.08 : -0.08]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.045, 0.045, 0.16, 16]} />
-            {padMat}
-          </mesh>
-        ) : null}
-
-        <group ref={ankleRef} position={[0, -BODY.shin, 0]}>
-          <mesh position={[0, -0.035, 0.05]} castShadow>
-            <boxGeometry args={[0.085, 0.055, 0.22]} />
-            {bodyMat}
-          </mesh>
-          {legPad === "footplate" && side === 1 ? (
-            <mesh position={[-BODY.hipHalfWidth, -0.075, 0.05]} receiveShadow>
+            </mesh>,
+          )
+        : null}
+      {scene.legPad === "footplate"
+        ? pin(
+            "foot_L",
+            <mesh receiveShadow>
               <boxGeometry args={[0.6, 0.025, 0.4]} />
               {padMat}
-            </mesh>
-          ) : null}
-        </group>
-      </group>
-    </group>
-  );
-}
-
-function MuscleMesh({
-  role,
-  colors,
-  position,
-  scale,
-  registerGlow,
-}: {
-  role: MuscleRole;
-  colors: SceneColors;
-  position: [number, number, number];
-  scale: [number, number, number];
-  registerGlow: (material: MeshStandardMaterial | null) => (() => void) | undefined;
-}) {
-  const color = role === "primary" ? colors.primary : role === "secondary" ? colors.secondary : colors.muscleIdle;
-  return (
-    <mesh position={position} scale={scale}>
-      <sphereGeometry args={[1, 20, 14]} />
-      <meshStandardMaterial
-        ref={role === "primary" ? registerGlow : undefined}
-        color={color}
-        emissive={role === "primary" ? colors.primary : "#000000"}
-        emissiveIntensity={role === "primary" ? 0.3 : 0}
-        roughness={0.55}
-      />
-    </mesh>
+            </mesh>,
+          )
+        : null}
+      {kneePads
+        ? (["thigh_L", "thigh_R"] as const).map((joint) =>
+            pin(
+              joint,
+              <mesh>
+                <boxGeometry args={[0.04, 0.16, 0.14]} />
+                {padMat}
+              </mesh>,
+            ),
+          )
+        : null}
+      {shinPads
+        ? (["shin_L", "shin_R"] as const).map((joint) =>
+            pin(
+              joint,
+              <mesh rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.045, 0.045, 0.16, 16]} />
+                {padMat}
+              </mesh>,
+            ),
+          )
+        : null}
+      {scene.grip === "handles"
+        ? (["hand_L", "hand_R"] as const).map((joint) =>
+            pin(
+              joint,
+              <mesh rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.016, 0.016, 0.13, 10]} />
+                {metalMat}
+              </mesh>,
+            ),
+          )
+        : null}
+    </>
   );
 }
 

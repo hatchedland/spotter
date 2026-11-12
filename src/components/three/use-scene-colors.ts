@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 export interface SceneColors {
   body: string;
   muscleIdle: string;
+  tendon: string;
   primary: string;
   secondary: string;
   metal: string;
@@ -15,6 +16,7 @@ export interface SceneColors {
 const FALLBACK: SceneColors = {
   body: "#b9c2c7",
   muscleIdle: "#9aa5ac",
+  tendon: "#d9dcd6",
   primary: "#2148d0",
   secondary: "#9db1f2",
   metal: "#5d6870",
@@ -25,6 +27,7 @@ const FALLBACK: SceneColors = {
 const VARS: Record<keyof SceneColors, string> = {
   body: "--scene-body",
   muscleIdle: "--scene-muscle-idle",
+  tendon: "--scene-tendon",
   primary: "--plate",
   secondary: "--plate-soft",
   metal: "--scene-metal",

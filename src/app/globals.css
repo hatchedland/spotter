@@ -26,6 +26,7 @@
   /* 3D scene palette (read by three.js via getComputedStyle) */
   --scene-body: #b9c2c7;
   --scene-muscle-idle: #9aa5ac;
+  --scene-tendon: #d9dcd6;
   --scene-metal: #5d6870;
   --scene-pad: #2c3338;
   --scene-floor: #dde3e1;
@@ -51,7 +52,8 @@
     --focus: #7f9cff;
 
     --scene-body: #6c777e;
-    --scene-muscle-idle: #586269;
+    --scene-muscle-idle: #7b858b;
+    --scene-tendon: #a9ada6;
     --scene-metal: #8a959c;
     --scene-pad: #1f2428;
     --scene-floor: #1a1f22;

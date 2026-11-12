@@ -93,7 +93,7 @@ export const reviewRequestSchema = z.object({
       }),
     )
     .min(1)
-    .max(3),
+    .max(4),
 });
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>;
 
@@ -122,6 +122,7 @@ export type ReviewResponse = Review;
 export const API_ERROR_CODES = [
   "INVALID_REQUEST",
   "PAYLOAD_TOO_LARGE",
+  "RATE_LIMITED",
   "AI_UNAVAILABLE",
   "AI_BAD_OUTPUT",
   "INTERNAL_ERROR",

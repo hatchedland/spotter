@@ -18,3 +18,5 @@ happened (results, surprises, what is still open).
 | Doc | What it covers |
 | --- | --- |
 | [anatomy-figure.md](anatomy-figure.md) | The 3D écorché figure: how it is built from Z-Anatomy, rigged, compressed and rendered |
+| [ai-provider.md](ai-provider.md) | The vision model: Google Gemini via `@ai-sdk/google`, keys, and keeping them private |
+| [form-check.md](form-check.md) | Filming a set: on-device pose tracking, measurements, key frames, the coaching call |

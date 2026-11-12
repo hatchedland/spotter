@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.118",
     "@mediapipe/tasks-vision": "^1.2.3",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",

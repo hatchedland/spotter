@@ -27,11 +27,14 @@ These override the global Codebase Standards where they conflict.
 ## Code
 
 - Next.js 16 App Router + `cacheComponents`. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
-- AI calls go through Vercel AI Gateway with AI SDK 7 (`instructions`, `Output.object`, `{ type: "file" }` image parts).
+- AI calls go to Google Gemini directly via `@ai-sdk/google` with AI SDK 7 (`instructions`, `Output.object`,
+  `{ type: "file" }` image parts). Key from `GOOGLE_GENERATIVE_AI_API_KEY`, never `NEXT_PUBLIC_`, real
+  values only in `.env.local`. See `docs/ai-provider.md`.
   Model id from `VISION_MODEL`, server-only code in `src/server/`.
 - API routes live under `/api/v1/`, validate input with Zod (`src/lib/schemas.ts`) and return
-  `{ error, code }` with a real HTTP status on failure.
-- Pure logic (`src/lib/exercise`, `src/lib/analysis`) is unit-tested with Vitest; keep coverage ≥ 80%.
+  `{ error, code }` with a real HTTP status on failure. Routes that call the AI model check
+  `rateLimit()` (`src/server/rate-limit.ts`) before reading the body.
+- Pure logic (`src/lib/exercise`, `src/lib/analysis`, `src/lib/rate-limit.ts`) is unit-tested with Vitest; keep coverage ≥ 80%.
   Run `npm run typecheck && npm run lint && npm test` before committing.
 - No `any`. Hooks before conditional returns. Ref-holding props end in `Ref` (React Compiler lint).
 

@@ -69,15 +69,22 @@ export const BODY = {
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 
+/** Leg measurements needed to keep a figure's feet planted. */
+export interface LegDims {
+  thigh: number;
+  shin: number;
+  ankleHeight: number;
+}
+
 /**
  * Pelvis position that keeps both feet planted at the origin for a standing pose.
  * Returns [y, z] for the pelvis (hip joint centre).
  */
-export function groundedPelvis(pose: Pose): [number, number] {
+export function groundedPelvis(pose: Pose, dims: LegDims = BODY): [number, number] {
   const h = toRad(pose.hipFlex);
   const shinAngle = toRad(pose.hipFlex - pose.kneeFlex);
-  const y = BODY.thigh * Math.cos(h) + BODY.shin * Math.cos(shinAngle) + BODY.ankleHeight;
-  const z = -(BODY.thigh * Math.sin(h) + BODY.shin * Math.sin(shinAngle));
+  const y = dims.thigh * Math.cos(h) + dims.shin * Math.cos(shinAngle) + dims.ankleHeight;
+  const z = -(dims.thigh * Math.sin(h) + dims.shin * Math.sin(shinAngle));
   return [y, z];
 }
 

@@ -129,3 +129,10 @@ describe("API schemas", () => {
     ).toBe(true);
   });
 });
+
+describe("groundedPelvis with custom legs", () => {
+  it("uses the supplied leg lengths", () => {
+    const [y] = groundedPelvis(NEUTRAL_POSE, { thigh: 0.5, shin: 0.4, ankleHeight: 0.1 });
+    expect(y).toBeCloseTo(1);
+  });
+});

@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import { pickKeyframes } from "@/lib/analysis/keyframes";
 import { analyseSet } from "@/lib/analysis/metrics";
 import { signalLandmarks } from "@/lib/analysis/signals";
 import { ApiRequestError, requestFormReview } from "@/lib/client/api";
@@ -22,21 +23,6 @@ type FlowState =
   | { status: "tracking"; stage: "model" | "tracking"; progress: number }
   | { status: "results"; clip: TrackedClip; metrics: SetMetrics; review: ReviewState }
   | { status: "error"; message: string };
-
-function pickKeyframes(metrics: SetMetrics): { label: string; timeSec: number }[] {
-  const { reps, durationSec } = metrics;
-  if (reps.length === 0) {
-    return [0.25, 0.5, 0.75].map((f) => ({ label: `${Math.round(f * 100)}% through the clip`, timeSec: durationSec * f }));
-  }
-  const first = reps[0];
-  const last = reps[reps.length - 1];
-  const frames = [
-    { label: "Start of rep 1", timeSec: first.startSec },
-    { label: "End position of rep 1", timeSec: first.peakSec },
-  ];
-  if (reps.length > 1) frames.push({ label: `End position of rep ${last.index + 1} (last rep)`, timeSec: last.peakSec });
-  return frames;
-}
 
 export function FormCheckFlow() {
   const params = useSearchParams();

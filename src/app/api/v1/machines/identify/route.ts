@@ -1,10 +1,14 @@
 import { AiFailure, identifyMachine } from "@/server/ai";
 import { jsonError, parseJsonBody } from "@/server/http";
+import { rateLimit } from "@/server/rate-limit";
 import { identifyRequestSchema, type IdentifyResponse } from "@/lib/schemas";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<Response> {
+  const limited = rateLimit("identify", request);
+  if (limited) return limited;
+
   const parsed = await parseJsonBody(request, identifyRequestSchema);
   if (!parsed.ok) return parsed.response;
 
